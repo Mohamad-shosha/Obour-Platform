@@ -1,0 +1,16 @@
+package com.platform.obour.entity.enums;
+
+public enum DomainType {
+    PROGRAMMING,
+    ARCHITECTURE,
+    CIVIL_ENGINEERING,
+    INTERIOR_DESIGN,
+    GRAPHIC_DESIGN,
+    DATA_SCIENCE,
+    ARTIFICIAL_INTELLIGENCE,
+    CYBER_SECURITY,
+    NETWORKING,
+    BUSINESS_ANALYSIS,
+    DIGITAL_MARKETING,
+    PSYCHOLOGICAL
+}
