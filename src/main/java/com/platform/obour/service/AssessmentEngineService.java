@@ -110,6 +110,14 @@ public class AssessmentEngineService {
             }
         }
 
+        // Prevent retaking if already submitted
+        Optional<AssessmentSession> submitted = sessionRepo.findFirstByUserIdAndTemplateIdAndStatusOrderByStartedAtDesc(
+                request.getUserId(), request.getTemplateId(), SessionStatus.SUBMITTED);
+        if (submitted.isPresent()) {
+            log.info("Returning already submitted session {} for user {}", submitted.get().getId(), request.getUserId());
+            return buildSessionDTO(submitted.get(), template);
+        }
+
         // Fetch user from DB to avoid TransientPropertyValueException
         User user = userRepo.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -200,7 +208,7 @@ public class AssessmentEngineService {
         if (session.getStatus() == SessionStatus.SUBMITTED) {
             // Return existing result
             return resultRepo.findBySessionId(sessionId)
-                    .map(this::toResultDTO)
+                    .map(r -> toResultDTO(r, true))
                     .orElseThrow(() -> new RuntimeException("Result not found for submitted session"));
         }
 
@@ -243,7 +251,21 @@ public class AssessmentEngineService {
 
         result = resultRepo.save(result);
         log.info("Assessment submitted. Session={} Score={}%", sessionId, scorePct);
-        return toResultDTO(result);
+        return toResultDTO(result, true);
+    }
+    // ── Get Result ─────────────────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public AssessmentResultDTO getResultBySessionId(Long sessionId) {
+        return resultRepo.findBySessionId(sessionId)
+                .map(r -> toResultDTO(r, true))
+                .orElseThrow(() -> new RuntimeException("Result not found for session: " + sessionId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<AssessmentResultDTO> getResultsByUserId(Long userId) {
+        return resultRepo.findByUserIdOrderByCompletedAtDesc(userId).stream()
+                .map(r -> toResultDTO(r, false))
+                .collect(Collectors.toList());
     }
 
     // ── Question Selection Logic ───────────────────────────────────────────────
@@ -342,7 +364,36 @@ public class AssessmentEngineService {
                 .build();
     }
 
-    private AssessmentResultDTO toResultDTO(AssessmentResult r) {
+    private AssessmentResultDTO toResultDTO(AssessmentResult r, boolean includeReviews) {
+        AssessmentSession session = r.getSession();
+        boolean showExplanation = Boolean.TRUE.equals(r.getTemplate().getShowExplanation());
+        
+        List<QuestionReviewDTO> reviews = List.of();
+        
+        if (includeReviews) {
+            List<SessionAnswer> answers = answerRepo.findBySessionId(session.getId());
+            Map<Long, SessionAnswer> answerMap = answers.stream()
+                    .collect(Collectors.toMap(a -> a.getQuestion().getId(), a -> a));
+                    
+            reviews = session.getSessionQuestions() != null ? session.getSessionQuestions().stream()
+                    .map(sq -> {
+                        QuestionBank q = sq.getQuestion();
+                        SessionAnswer ans = answerMap.get(q.getId());
+                        return QuestionReviewDTO.builder()
+                                .questionId(q.getId())
+                                .questionText(q.getQuestionText())
+                                .questionTextAr(q.getQuestionTextAr())
+                                .userChoiceId(ans != null && ans.getChoice() != null ? ans.getChoice().getId() : null)
+                                .userChoiceText(ans != null && ans.getChoice() != null ? ans.getChoice().getChoiceText() : null)
+                                .userChoiceTextAr(ans != null && ans.getChoice() != null ? ans.getChoice().getChoiceTextAr() : null)
+                                .isCorrect(ans != null && Boolean.TRUE.equals(ans.getIsCorrect()))
+                                .correctChoiceId(showExplanation ? q.getChoices().stream().filter(c -> Boolean.TRUE.equals(c.getIsCorrect())).map(c -> c.getId()).findFirst().orElse(null) : null)
+                                .explanation(showExplanation ? q.getExplanation() : null)
+                                .build();
+                    })
+                    .collect(Collectors.toList()) : List.of();
+        }
+
         return AssessmentResultDTO.builder()
                 .id(r.getId())
                 .sessionId(r.getSession().getId())
@@ -359,6 +410,7 @@ public class AssessmentEngineService {
                 .timeTakenSecs(r.getTimeTakenSecs())
                 .levelAchieved(r.getLevelAchieved() != null ? r.getLevelAchieved().name() : null)
                 .completedAt(r.getCompletedAt())
+                .questionReviews(reviews)
                 .build();
     }
 }

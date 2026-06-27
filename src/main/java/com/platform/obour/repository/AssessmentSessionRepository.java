@@ -13,6 +13,8 @@ public interface AssessmentSessionRepository extends JpaRepository<AssessmentSes
     @Query("SELECT s FROM AssessmentSession s WHERE s.user.id = :userId AND s.template.id = :templateId AND s.status IN ('STARTED','IN_PROGRESS') ORDER BY s.startedAt DESC")
     Optional<AssessmentSession> findActiveSession(Long userId, Long templateId);
 
+    Optional<AssessmentSession> findFirstByUserIdAndTemplateIdAndStatusOrderByStartedAtDesc(Long userId, Long templateId, SessionStatus status);
+
     List<AssessmentSession> findByUserIdAndStatus(Long userId, SessionStatus status);
 
     long countByUserIdAndStatus(Long userId, SessionStatus status);

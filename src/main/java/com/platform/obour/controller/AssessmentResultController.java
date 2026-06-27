@@ -15,18 +15,19 @@ import java.util.List;
 public class AssessmentResultController {
 
     private final AssessmentResultRepository resultRepo;
-    // We would ideally have an AssessmentResultService, but for brevity we'll just fetch directly or via engine
+    private final AssessmentEngineService engineService;
 
     @GetMapping("/{sessionId}")
     public ResponseEntity<?> getResultBySession(@PathVariable Long sessionId) {
-        // Just return the raw result entity for now, or map it using a mapper
-        return resultRepo.findBySessionId(sessionId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        try {
+            return ResponseEntity.ok(engineService.getResultBySessionId(sessionId));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<?> getResultsByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(resultRepo.findByUserIdOrderByCompletedAtDesc(userId));
+        return ResponseEntity.ok(engineService.getResultsByUserId(userId));
     }
 }

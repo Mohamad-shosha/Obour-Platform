@@ -6,11 +6,11 @@ import lombok.*;
 public class QuestionReviewDTO {
     private Long questionId;
     private String questionText;
-    private String selectedChoiceText;
-    private String correctChoiceText;
+    private String questionTextAr;
+    private Long userChoiceId;
+    private String userChoiceText;
+    private String userChoiceTextAr;
     private Boolean isCorrect;
+    private Long correctChoiceId;
     private String explanation;
-    private String difficulty;
-    private Integer pointsEarned;
-    private Integer maxPoints;
 }
