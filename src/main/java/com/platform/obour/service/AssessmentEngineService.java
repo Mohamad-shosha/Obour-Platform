@@ -30,35 +30,71 @@ public class AssessmentEngineService {
     private final AssessmentCategoryRepository categoryRepo;
     private final UserRepository userRepo;
 
+    // ── Get Session by ID ───────────────────────────────────────────────────
+    @Transactional(readOnly = true)
+    public AssessmentSessionDTO getSession(Long sessionId) {
+        AssessmentSession session = sessionRepo.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found: " + sessionId));
+        return buildSessionDTO(session, session.getTemplate());
+    }
+
     // ── Start or Resume Session ────────────────────────────────────────────────
     @Transactional
     public AssessmentSessionDTO startOrResumeSession(StartSessionRequest request) {
-        Long categoryId = request.getTemplateId(); // The frontend currently passes categoryId as templateId
-        
-        // Find existing template for this category
-        List<AssessmentTemplate> templates = templateRepo.findByCategoryIdAndIsActiveTrue(categoryId);
-        AssessmentTemplate template;
-        
-        if (templates != null && !templates.isEmpty()) {
-            template = templates.get(0);
-        } else {
-            // Generate a default template for this category dynamically
-            AssessmentCategory category = categoryRepo.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found: " + categoryId));
+        AssessmentTemplate template = null;
+
+        if (request.getCategoryId() != null) {
+            Long catId = request.getCategoryId();
+            List<AssessmentTemplate> templates = templateRepo.findByCategoryIdAndIsActiveTrue(catId);
+            if (templates != null && !templates.isEmpty()) {
+                template = templates.get(0);
+            } else {
+                AssessmentCategory category = categoryRepo.findById(catId)
+                    .orElseThrow(() -> new RuntimeException("Category not found: " + catId));
+                    
+                AssessmentTemplate newTemplate = AssessmentTemplate.builder()
+                    .domain(category.getDomain())
+                    .category(category)
+                    .name("تقييم " + (category.getNameAr() != null ? category.getNameAr() : category.getName()))
+                    .nameAr("تقييم " + (category.getNameAr() != null ? category.getNameAr() : category.getName()))
+                    .questionCount(15)
+                    .timeLimitMins(20)
+                    .passingScore(60)
+                    .allowResume(true)
+                    .randomize(true)
+                    .isActive(true)
+                    .build();
+                template = templateRepo.save(newTemplate);
+            }
+        } else if (request.getTemplateId() != null) {
+            Long templateId = request.getTemplateId();
+            template = templateRepo.findById(templateId).orElseGet(() -> {
+                List<AssessmentTemplate> templates = templateRepo.findByCategoryIdAndIsActiveTrue(templateId);
+                if (templates != null && !templates.isEmpty()) {
+                    return templates.get(0);
+                }
                 
-            template = AssessmentTemplate.builder()
-                .domain(category.getDomain())
-                .category(category)
-                .name("تقييم " + (category.getNameAr() != null ? category.getNameAr() : category.getName()))
-                .nameAr("تقييم " + (category.getNameAr() != null ? category.getNameAr() : category.getName()))
-                .questionCount(15) // Default to 15 questions
-                .timeLimitMins(20) // Default to 20 mins
-                .passingScore(60)
-                .allowResume(true)
-                .randomize(true)
-                .isActive(true)
-                .build();
-            template = templateRepo.save(template);
+                AssessmentCategory category = categoryRepo.findById(templateId)
+                    .orElseThrow(() -> new RuntimeException("Template/Category not found: " + templateId));
+                    
+                AssessmentTemplate newTemplate = AssessmentTemplate.builder()
+                    .domain(category.getDomain())
+                    .category(category)
+                    .name("تقييم " + (category.getNameAr() != null ? category.getNameAr() : category.getName()))
+                    .nameAr("تقييم " + (category.getNameAr() != null ? category.getNameAr() : category.getName()))
+                    .questionCount(15)
+                    .timeLimitMins(20)
+                    .passingScore(60)
+                    .allowResume(true)
+                    .randomize(true)
+                    .isActive(true)
+                    .build();
+                return templateRepo.save(newTemplate);
+            });
+        }
+
+        if (template == null) {
+            throw new RuntimeException("No template or category ID provided.");
         }
 
         // Update the request with the actual template ID so existing session lookup works properly
@@ -225,7 +261,8 @@ public class AssessmentEngineService {
                 pool = questionRepo.findRandomByCategoryAndDifficulty(
                         template.getCategory().getId(), diff, page);
             } else {
-                pool = questionRepo.findRandomByTopic(template.getCategory().getId(), page);
+                pool = questionRepo.findRandomByCategory(
+                        template.getCategory().getId(), page);
             }
         } else if (template.getDomain() != null) {
             pool = questionRepo.findRandomByDomain(template.getDomain().getId(), page);
@@ -235,6 +272,10 @@ public class AssessmentEngineService {
 
         if (Boolean.TRUE.equals(template.getRandomize())) {
             Collections.shuffle(pool);
+        }
+
+        if (pool == null || pool.isEmpty()) {
+            throw new RuntimeException("No active questions found for the selected assessment template.");
         }
 
         return pool.stream().limit(count).collect(Collectors.toList());

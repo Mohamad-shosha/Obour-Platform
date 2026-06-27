@@ -61,6 +61,7 @@ public class AuthService {
         String jwt = jwtUtil.generateToken(user);
 
         return ResponseEntity.ok(new AuthResponse(
+                user.getId(),
                 jwt,
                 user.getName(),
                 user.getRole().name()

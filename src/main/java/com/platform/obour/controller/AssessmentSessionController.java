@@ -21,6 +21,11 @@ public class AssessmentSessionController {
         return ResponseEntity.ok(engineService.startOrResumeSession(request));
     }
 
+    @GetMapping("/{sessionId}")
+    public ResponseEntity<AssessmentSessionDTO> getSession(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(engineService.getSession(sessionId));
+    }
+
     @PutMapping("/{sessionId}/answer")
     public ResponseEntity<Void> saveAnswer(@PathVariable Long sessionId, @RequestBody SaveAnswerRequest request) {
         engineService.saveAnswer(sessionId, request);

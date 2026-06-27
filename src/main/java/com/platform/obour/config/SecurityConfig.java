@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/sessions/start").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/users/**").hasRole("TEACHER")
                         .requestMatchers(HttpMethod.POST, "/api/student-answers/**").hasRole("STUDENT")
                         .requestMatchers(HttpMethod.GET, "/api/student-answers/score/**").hasAnyRole("STUDENT", "TEACHER")
@@ -63,6 +64,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/questions/**").hasRole("TEACHER")
                         .requestMatchers(HttpMethod.PUT, "/api/questions/**").hasRole("TEACHER")
                         .requestMatchers(HttpMethod.DELETE, "/api/questions/**").hasRole("TEACHER")
+                        .requestMatchers("/api/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

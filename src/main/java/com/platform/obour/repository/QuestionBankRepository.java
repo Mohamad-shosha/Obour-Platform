@@ -30,6 +30,9 @@ public interface QuestionBankRepository extends JpaRepository<QuestionBank, Long
     @Query("SELECT q FROM QuestionBank q WHERE q.topic.id = :topicId AND q.isActive = true ORDER BY RAND()")
     List<QuestionBank> findRandomByTopic(@Param("topicId") Long topicId, Pageable pageable);
 
+    @Query("SELECT q FROM QuestionBank q WHERE q.category.id = :categoryId AND q.isActive = true ORDER BY RAND()")
+    List<QuestionBank> findRandomByCategory(@Param("categoryId") Long categoryId, Pageable pageable);
+
     Page<QuestionBank> findByDomainId(Long domainId, Pageable pageable);
 
     long countByDomainIdAndIsActiveTrue(Long domainId);
